@@ -11,7 +11,7 @@
  *    - Tests the creation of a big opportunity deal and updates the user role name.
  * 
  * 3. nextStepQueueable_testEnqueueJob: 
- *    - Tests the enqueue operation and execution of the NextStepQueueable class.
+ *    - Tests the enqueue operation and execution of the nextStepQueueable class.
  *    - Validates if the NextStep fields in Account and Opportunity are set to null after execution.
  * 
  * 4. nextStepBatch_testUpdateAllNextStep: 
@@ -30,7 +30,7 @@ public with sharing class AsynchronousTest {
     static void nextStepFuture_testUpdateAllNextStep() {
         // Create test data
         List<Account> testAccounts = new List<Account>();
-        for (Integer i = 0; i < 5; i++) {
+        for (Integer i = 0; i < 500; i++) {
             testAccounts.add(new Account(Name = 'Test Account ' + i));
         }
         insert testAccounts;
@@ -43,7 +43,7 @@ public with sharing class AsynchronousTest {
 
         // Call the method to test between the startTest and stopTest methods
         Test.startTest();
-        //YOUR CODE HERE
+        NextStepFuture.updateAccountAndOpportunityNextStep();
         Test.stopTest();
 
         // Query the updated accounts and opportunities
@@ -69,6 +69,7 @@ public with sharing class AsynchronousTest {
 
         // Due to the Mixed DML error, we need to test the insertBigDeal method
         Opportunity insertedOpportunity = [SELECT Id, Amount, Name, StageName, CloseDate FROM Opportunity WHERE Name = 'Big Deal' LIMIT 1];
+
         System.assertNotEquals(null, insertedOpportunity, 'Opportunity should have been created.');
         System.assertEquals(1000000, insertedOpportunity.Amount, 'Opportunity Amount is incorrect.');
 
@@ -81,7 +82,7 @@ public with sharing class AsynchronousTest {
     static void nextStepQueueable_testEnqueueJob() {
         // Create test data
         List<Account> testAccounts = new List<Account>();
-        for (Integer i = 0; i < 5; i++) {
+        for (Integer i = 0; i < 15; i++) {
             testAccounts.add(new Account(Name = 'Test Account ' + i, Next_Step__c = 'Meeting in the future'));
         }
         insert testAccounts;
@@ -94,7 +95,7 @@ public with sharing class AsynchronousTest {
 
         // Call the method to test
         Test.startTest();
-        NextStepQueueable.enqueueJob();
+        nextStepQueueable.enqueueJob();
         Test.stopTest();
 
         // Query the updated accounts and opportunities
@@ -151,6 +152,7 @@ public with sharing class AsynchronousTest {
     /*  //UNCOMMENT TEST METHODS BELOW ONCE THE NextStepSchedule class is implemented
         //No Changes should be required to the test methods/code below other than uncommenting them
         //Manually setup the scheduled job in Salesforce to run the NextStepSchedule class
+    */
     @IsTest
     static void nextStepSchedule_testExecute() {
         // Create test data
@@ -189,5 +191,4 @@ public with sharing class AsynchronousTest {
             System.assertEquals('Batching the next meetings together.', opp.NextStep, 'Opportunity NextStep field was not updated correctly.');
         }
     }
-    */
 }

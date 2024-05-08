@@ -17,51 +17,86 @@
  * 
  * Note: The class below contains placeholders for implementing a queueable job to update accounts and opportunities.
  */
-public with sharing class NextStepQueueable {
+public with sharing class NextStepQueueable implements Queueable{
 
-    // Member variable to store the accounts
-    private Map<Id,Account> accounts;
+    Private static final Integer MAX_JOBS = 10;
+    // Define the number of accounts to process at a time
+    Private static final Integer BATCH_SIZE = 10;
 
-    // Constructor to accept the accounts
-    public NextStepQueueable(Map<Id,Account> accounts) {
-        // Store the accounts in a member variable
+    // This is a list that will hold the accounts we want to update
+    private List<Account> accounts;
+
+    // This is the constructor. It sets up the list of accounts when a new instance of the class is created.
+    public NextStepQueueable(List<Account> accounts) {
+		this.accounts = accounts;
     }
 
-    // Method to queue the job
+    // This method is used to start the job. It gets the accounts and then adds the job to the queue.
     public static void enqueueJob() {
-        // Get 10 accounts with Next Step populated
 
-        // If there are any accounts, queue the job using System.enqueueJob
+        // Get all accounts where the Next Step field is not empty
+        List<Account> accounts = [SELECT Id, Next_Step__c FROM Account WHERE Next_Step__c != null];
+        
+        // If there are accounts, add a new job to the queue
+        if (!accounts.isEmpty()) {
+            System.enqueueJob(new NextStepQueueable(accounts));
+        }
     }
 
-    /*
-     * Update/Uncomment the template code to create a method
-     * Method to execute the queueable job
-     */
-    //[public | private ] [static] data_type execute (input parameters) {
-        // Get the accounts from the member variable
+    // This method is called when the job starts. It processes the accounts in batches.
+    public void execute(QueueableContext context) {
+        
+        // Keep processing accounts until there are none left
+        while (!accounts.isEmpty()) {
+            // Get a batch of accounts to update
+            List<Account> accountsToUpdate = getBatch(accounts, BATCH_SIZE);
+            // Remove the accounts we're updating from the main list
+            accounts = removeBatch(accounts, BATCH_SIZE);
 
-            // Remove the Next Step using the helper method
+            // Update each account in the batch
+            for (Account acc : accountsToUpdate) {
+                removeNextStep(acc);
+            }
+            update accountsToUpdate;
 
-        // Update the accounts
+            // Get and update the opportunities related to the accounts
+            List<Opportunity> opps = [SELECT Id, Name, NextStep FROM Opportunity WHERE AccountId IN :accountsToUpdate];
+            for (Opportunity opp : opps) {
+                removeNextStep(opp);
+            }
+            update opps;
+        }
 
-        // Get the opportunities related to the accounts
+        // If there are still accounts left to process, add another job to the queue
+        if (!accounts.isEmpty() && AsyncInfo.getCurrentQueueableStackDepth() < MAX_JOBS) {
+            NextStepQueueable.enqueueJob();
+        }
+    }
 
-            // Remove the Next Step using the helper method
+    // This method gets a batch of accounts to update
+    private static List<Account> getBatch(List<Account> accounts, Integer batchSize) {
 
-        // Update the opportunities
+        List<Account> batch = new List<Account>();
+        for (Integer i = 0; i < batchSize && i < accounts.size(); i++) {
+            batch.add(accounts[i]);
+        }
+        return batch;
+    }
 
-        // Call the enqueueJob method to queue another job to process more records.
-    //}
+    // This method removes a batch of accounts from the main list
+    private static List<Account> removeBatch(List<Account> accounts, Integer batchSize) {
 
-    // Helper method to remove the Next Step
-    // Overloaded method to accept an opportunity
+        List<Account> remaining = new List<Account>();
+        for (Integer i = batchSize; i < accounts.size(); i++) {
+            remaining.add(accounts[i]);
+        }
+        return remaining;
+    }
+
+    // These methods remove the Next Step field from an account or opportunity
     private static void removeNextStep(Opportunity opp) {
         opp.NextStep = null;
     }
-
-    // Helper method to remove the Next Step
-    // Overloaded method to accept an account
     private static void removeNextStep(Account acc) {
         acc.Next_Step__c = null;
     }
